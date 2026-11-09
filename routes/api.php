@@ -4,9 +4,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 /*
-| Rutas de la API para la app de Flutter (se completarán más adelante con Sanctum).
+| API de la aplicación móvil (Flutter).
+| Todas las rutas protegidas exigen token de Sanctum y el permiso "Acceso a la aplicación móvil".
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
+Route::middleware(['auth:sanctum', 'mobile.app'])->group(function () {
+    Route::get('/user', fn(Request $request) => $request->user());
 });

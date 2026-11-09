@@ -33,6 +33,7 @@ class Permissions
     public const CENTER_EDIT = 'center.edit';
 
     // Pagos a repartidores
+    public const PAYMENTS_VIEW_OWN = 'payments.view_own';
     public const PAYMENTS_VIEW   = 'payments.view';
     public const PAYMENTS_CREATE = 'payments.create';
     public const PAYMENTS_EDIT   = 'payments.edit';
@@ -40,6 +41,17 @@ class Permissions
 
     // Informes
     public const REPORTS_VIEW = 'reports.view';
+
+    // Aplicación móvil
+    public const APP_ACCESS = 'app.access';
+
+    // Cuadres de jornada
+    public const CLOSINGS_VIEW_OWN      = 'closings.view_own';
+    public const CLOSINGS_VIEW_ALL      = 'closings.view_all';
+    public const CLOSINGS_CREATE        = 'closings.create';
+    public const CLOSINGS_EDIT          = 'closings.edit';
+    public const CLOSINGS_DELETE        = 'closings.delete';
+    public const CLOSINGS_CONFIRM_ADMIN = 'closings.confirm_admin';
 
     /**
      * Permisos agrupados por módulo: [grupo => [label grupo, [permiso => label]]]
@@ -86,7 +98,8 @@ class Permissions
             'payments' => [
                 'label' => 'Pagos a repartidores',
                 'permissions' => [
-                    self::PAYMENTS_VIEW   => 'Ver pagos',
+                    self::PAYMENTS_VIEW_OWN => 'Ver mis pagos (los que me han hecho)',
+                    self::PAYMENTS_VIEW   => 'Ver todos los pagos del centro',
                     self::PAYMENTS_CREATE => 'Crear pagos',
                     self::PAYMENTS_EDIT   => 'Editar pagos',
                     self::PAYMENTS_DELETE => 'Eliminar pagos',
@@ -96,6 +109,23 @@ class Permissions
                 'label' => 'Informes',
                 'permissions' => [
                     self::REPORTS_VIEW => 'Ver y descargar informes',
+                ],
+            ],
+            'app' => [
+                'label' => 'Aplicación móvil',
+                'permissions' => [
+                    self::APP_ACCESS => 'Acceso a la aplicación móvil',
+                ],
+            ],
+            'closings' => [
+                'label' => 'Cuadres de jornada',
+                'permissions' => [
+                    self::CLOSINGS_VIEW_OWN      => 'Ver mis cuadres',
+                    self::CLOSINGS_VIEW_ALL      => 'Ver todos los cuadres del centro',
+                    self::CLOSINGS_CREATE        => 'Crear cuadres (apertura)',
+                    self::CLOSINGS_EDIT          => 'Editar cuadres',
+                    self::CLOSINGS_DELETE        => 'Eliminar cuadres',
+                    self::CLOSINGS_CONFIRM_ADMIN => 'Confirmar como administrador (y fijar paquetes entregados)',
                 ],
             ],
         ];

@@ -108,6 +108,12 @@ class PackageResource extends Resource
         return 'Pedidos pendientes';
     }
 
+    /** ¿Puede asignar pedidos a cualquier repartidor? (con "Ver todos los pedidos del centro") */
+    public static function canAssignAnyDriver(): bool
+    {
+        return (bool) Auth::user()?->canViewAllPackages();
+    }
+
     /** Repartidores activos del mismo centro */
     public static function driverQuery(Builder $query): Builder
     {
@@ -260,7 +266,13 @@ class PackageResource extends Resource
                                             }),
                                         Forms\Components\Select::make('user_id')
                                             ->label('Repartidor')
-                                            ->relationship('driver', 'name', fn(Builder $query) => static::driverQuery($query))
+                                            // Sin "Ver todos los pedidos del centro": solo a su nombre
+                                            ->relationship('driver', 'name', fn(Builder $query) => static::canAssignAnyDriver()
+                                                ? static::driverQuery($query)
+                                                : $query->whereKey(Auth::id() ?? -1))
+                                            ->default(fn() => static::canAssignAnyDriver() ? null : Auth::id())
+                                            ->disabled(fn() => !static::canAssignAnyDriver())
+                                            ->helperText(fn() => static::canAssignAnyDriver() ? null : 'Los pedidos que crees quedan a tu nombre.')
                                             ->searchable()
                                             ->preload()
                                             ->live()
@@ -604,14 +616,14 @@ class PackageResource extends Resource
                     fn() => now()->endOfWeek(\Carbon\Carbon::SUNDAY)->toDateString(),
                 )
                     ->query(fn(Builder $query, array $data) => $query
-                        ->when($data['from'] ?? null, fn($q, $d) => $q->whereDate('packages.shipping_date', '>=', $d))
-                        ->when($data['until'] ?? null, fn($q, $d) => $q->whereDate('packages.shipping_date', '<=', $d))),
+                        ->when($data['from'] ?? null, fn($q, $d) => $q->whereDate('packages.shipping_date', '>=', \App\Support\Dates::day($d)))
+                        ->when($data['until'] ?? null, fn($q, $d) => $q->whereDate('packages.shipping_date', '<=', \App\Support\Dates::day($d)))),
                 // Fecha de ENTREGA (la de "Entregados hoy" y las comisiones).
                 // Los devueltos cuentan por su fecha de devolución (el intento de entrega).
                 static::dateRangeFilter('closed_date', 'Fecha de entrega', 'Entrega')
                     ->query(function (Builder $query, array $data) {
-                        $from  = $data['from'] ?? null;
-                        $until = $data['until'] ?? null;
+                        $from  = \App\Support\Dates::day($data['from'] ?? null);
+                        $until = \App\Support\Dates::day($data['until'] ?? null);
 
                         if (!$from && !$until) {
                             return $query;

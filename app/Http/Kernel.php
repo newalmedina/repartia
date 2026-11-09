@@ -53,6 +53,8 @@ class Kernel extends HttpKernel
      * @var array<string, class-string|string>
      */
     protected $middlewareAliases = [
+        // API de la aplicación móvil: usuario activo con permiso "Acceso a la aplicación móvil"
+        'mobile.app' => \App\Http\Middleware\EnsureMobileAppAccess::class,
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'auth.session' => \Illuminate\Session\Middleware\AuthenticateSession::class,

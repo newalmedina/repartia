@@ -123,6 +123,12 @@ class User extends Authenticatable implements FilamentUser
         return false;
     }
 
+    /** ¿Puede usar la aplicación móvil? (activo + permiso "Acceso a la aplicación móvil") */
+    public function canUseMobileApp(): bool
+    {
+        return $this->active && $this->hasPermission(Permissions::APP_ACCESS);
+    }
+
     /** ¿Puede ver los pedidos de todo el centro o solo los suyos? */
     public function canViewAllPackages(): bool
     {

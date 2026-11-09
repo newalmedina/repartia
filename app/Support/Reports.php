@@ -249,7 +249,8 @@ class Reports
 
         $payments = Payment::query()
             ->where('center_id', $user?->center_id ?? -1)
-            ->when(!$user?->canViewAllPackages(), fn($q) => $q->where('user_id', $user?->id ?? -1))
+            // Sin "Ver todos los pagos": solo los que le han hecho a él
+            ->when(!$user?->hasPermission(Permissions::PAYMENTS_VIEW), fn($q) => $q->where('user_id', $user?->id ?? -1))
             ->when($this->driverId(), fn($q, $id) => $q->where('user_id', $id))
             ->whereBetween('paid_at', $this->dateRange())
             ->with('driver')

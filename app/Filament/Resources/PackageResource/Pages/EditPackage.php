@@ -42,6 +42,11 @@ class EditPackage extends EditRecord
         $data = array_merge($data, Package::statusAttributes($data['status'] ?? null));
         unset($data['status']);
 
+        // Sin "Ver todos los pedidos del centro": el pedido es siempre suyo (no se fía del formulario)
+        if (!PackageResource::canAssignAnyDriver()) {
+            $data['user_id'] = \Illuminate\Support\Facades\Auth::id();
+        }
+
         return $data;
     }
 

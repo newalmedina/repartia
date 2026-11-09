@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Center;
+use App\Models\DailyClosing;
 use App\Models\Package;
 use App\Models\PackageCategory;
 use App\Models\Payment;
@@ -93,6 +94,7 @@ class TestDataSeeder extends Seeder
             $count      = $this->makePackages($center, $categories, $drivers, $from, $to);
 
             $this->makeExamplePayments($center, $drivers);
+            $this->makeExampleClosings($center, $drivers);
 
             return $count;
         });
@@ -404,6 +406,67 @@ class TestDataSeeder extends Seeder
             $this->command?->line("  · Pago de prueba {$payment->number} para {$driver->name}: {$payment->packages_count} pedidos, total "
                 . number_format((float) $payment->total, 2, ',', '.') . ' €');
         }
+    }
+
+    /**
+     * Cuadres de jornada de ejemplo (últimos 7 días + hoy) para cada repartidor:
+     *  - hace 3+ días: cerrados (confirmados por repartidor y administrador)
+     *  - hace 2 días: el primer repartidor NO cuadra (repartidos -1) a propósito
+     *  - ayer: confirmado solo por el repartidor
+     *  - hoy: abierto (solo la apertura del administrador)
+     */
+    protected function makeExampleClosings(Center $center, array $drivers): void
+    {
+        $admin = User::where('email', 'ing.newal.medina@outlook.com')->first() ?? $drivers[0];
+
+        DailyClosing::where('center_id', $center->id)
+            ->whereDate('date', '>=', now()->subDays(7)->toDateString())
+            ->whereIn('user_id', collect($drivers)->pluck('id'))
+            ->delete();
+
+        // Datos de prueba: se permiten cuadres seguidos aunque el anterior no esté cerrado
+        DailyClosing::$skipPreviousCheck = true;
+
+        foreach ($drivers as $index => $driver) {
+            for ($back = 7; $back >= 0; $back--) {
+                $date   = now()->subDays($back)->toDateString();
+                $system = DailyClosing::systemCountsFor($driver->id, $date, $center->id);
+
+                if ($system['assigned'] === 0) {
+                    continue; // ese día no tuvo pedidos
+                }
+
+                $closing = DailyClosing::create([
+                    'center_id'       => $center->id,
+                    'user_id'         => $driver->id,
+                    'date'            => $date,
+                    'assigned_count'  => $system['assigned'],
+                    'delivered_count' => $back === 0 ? null : $system['delivered'],
+                    'returned_count'  => $back === 0 ? null : $system['returned'],
+                    'pending_count'   => $back === 0 ? null : $system['pending'],
+                    'created_by'      => $admin->id,
+                    'notes'           => 'Cuadre de prueba',
+                ]);
+
+                // Hace 2 días, el primer repartidor se equivoca a propósito: no cuadra
+                if ($back === 2 && $index === 0 && $system['delivered'] > 0) {
+                    $closing->update(['delivered_count' => $system['delivered'] - 1]);
+                    continue;
+                }
+
+                if ($back === 0 || !$closing->isBalanced()) {
+                    continue;
+                }
+
+                $closing->confirmAsDriver($driver);
+
+                if ($back >= 3) {
+                    $closing->confirmAsAdmin($admin);
+                }
+            }
+        }
+
+        DailyClosing::$skipPreviousCheck = false;
     }
 
     protected function personName(): string

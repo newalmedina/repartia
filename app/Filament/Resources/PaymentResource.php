@@ -57,14 +57,21 @@ class PaymentResource extends Resource
         return (bool) Auth::user()?->hasPermission($permission);
     }
 
-    public static function canViewAny(): bool
+    /** ¿Ve todos los pagos del centro? (si no, solo los suyos) */
+    public static function canViewAllPayments(): bool
     {
         return static::userCan(Permissions::PAYMENTS_VIEW);
     }
 
+    public static function canViewAny(): bool
+    {
+        return static::canViewAllPayments() || static::userCan(Permissions::PAYMENTS_VIEW_OWN);
+    }
+
     public static function canView(Model $record): bool
     {
-        return static::userCan(Permissions::PAYMENTS_VIEW);
+        return static::canViewAllPayments()
+            || (static::userCan(Permissions::PAYMENTS_VIEW_OWN) && $record->user_id === Auth::id());
     }
 
     public static function canCreate(): bool
@@ -87,11 +94,12 @@ class PaymentResource extends Resource
         return false;
     }
 
-    /** Solo pagos de su centro */
+    /** Pagos de su centro; con "Ver mis pagos", solo los que le han hecho a él */
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
             ->where('center_id', Auth::user()?->center_id ?? -1)
+            ->when(!static::canViewAllPayments(), fn(Builder $query) => $query->where('user_id', Auth::id() ?? -1))
             ->with(['driver', 'creator']);
     }
 
@@ -335,25 +343,28 @@ class PaymentResource extends Resource
                     ->label('Repartidor')
                     ->relationship('driver', 'name', fn(Builder $query) => $query->where('center_id', Auth::user()?->center_id ?? -1))
                     ->searchable()
-                    ->preload(),
+                    ->preload()
+                    ->visible(fn() => static::canViewAllPayments()),
                 Tables\Filters\Filter::make('paid_at')
                     ->form([
                         Forms\Components\DatePicker::make('from')->label('Pagado desde')->native(false)->displayFormat('d/m/Y'),
                         Forms\Components\DatePicker::make('until')->label('Pagado hasta')->native(false)->displayFormat('d/m/Y'),
                     ])
                     ->query(fn(Builder $query, array $data) => $query
-                        ->when($data['from'] ?? null, fn($q, $d) => $q->whereDate('paid_at', '>=', $d))
-                        ->when($data['until'] ?? null, fn($q, $d) => $q->whereDate('paid_at', '<=', $d))),
+                        ->when($data['from'] ?? null, fn($q, $d) => $q->whereDate('paid_at', '>=', \App\Support\Dates::day($d)))
+                        ->when($data['until'] ?? null, fn($q, $d) => $q->whereDate('paid_at', '<=', \App\Support\Dates::day($d)))),
             ])
             ->actions([
                 Tables\Actions\Action::make('pdf')
                     ->label('')
+                    ->visible(fn(Payment $record) => static::canView($record))
                     ->tooltip('Descargar recibo en PDF')
                     ->icon('heroicon-o-document-arrow-down')
                     ->color('danger')
                     ->action(fn(Payment $record) => \App\Support\Reports::paymentReceiptPdf($record)),
                 Tables\Actions\Action::make('excel')
                     ->label('')
+                    ->visible(fn(Payment $record) => static::canView($record))
                     ->tooltip('Descargar recibo en Excel')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('gray')
